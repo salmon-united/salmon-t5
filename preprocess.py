@@ -51,7 +51,7 @@ def remove_label(sentence: str) -> str:
 
 def get_data_from_txt(path: str) -> DataFrame:
     # Get original train data from txt file 
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='UTF8') as f:
         # because of useless spacing, last line remove
         sentence_list = f.read().split('\n')[:-1]
     df = pd.DataFrame({'sentence':sentence_list})
