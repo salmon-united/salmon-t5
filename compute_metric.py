@@ -10,7 +10,7 @@ def compute_metric(preds, labels):
             pred_list[c][1] += pred
             pred_list.append([list(), ''])
             c += 1
-    del pred_list[-1]
+    del pred_list[-1] # pred list 생성
     label_list = list()
     label_list.append([list(), ''])
     c = 0
@@ -21,7 +21,7 @@ def compute_metric(preds, labels):
             label_list[c][1] += label
             label_list.append([list(), ''])
             c += 1
-    del label_list[-1]
+    del label_list[-1] # label list 생성
     
     # print(pred_list)
     # print(label_list)
@@ -37,7 +37,7 @@ def compute_metric(preds, labels):
             if sum([label in pred_substring_list for label in label_substring_list]) > 0:
                 if label_tag == pred_tag:
                    true_positive += 1
-                break
+                break # true_positive 구하기
     
     flase_positive = len(pred_list) - true_positive
     false_negative = len(label_list) - true_positive
@@ -52,17 +52,15 @@ def compute_metric(preds, labels):
         return None
     f1 = 2 / (1/precision + 1/recall)
     
-    
-    # print(len(label_list))
-    # print(len(pred_list))
-    # print(true_positive)
-    # print(flase_positive)
-    # print(false_negative)
-    # print(precision)
-    # print(recall)
-    # print(f1)
+#     print('len(label_list)', len(label_list))
+#     print('len(pred_list)', len(pred_list))
+#     print('true_positive', true_positive)
+#     print('flase_positive', flase_positive)
+#     print('false_negative', false_negative)
+#     print('precision', precision)
+#     print('recall', recall)
+#     print('f1', f1)
     
     if len(label_list) == 0:
         return None
-    # return f1, true_positive / len(label_list)
-    return f1
+    return f1, true_positive / len(label_list)
