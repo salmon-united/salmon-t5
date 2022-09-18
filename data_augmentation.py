@@ -7,6 +7,7 @@ from copy import deepcopy
 
 DataFrame = TypeVar('DataFrame')
 
+# create entity dict for changing random word
 def get_entity_dict(preprocessed_df: DataFrame)-> Dict[str, List[str]]:
     
     entity_dict = defaultdict(list)
