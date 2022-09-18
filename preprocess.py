@@ -21,7 +21,7 @@ torch.backends.cudnn.benchmark = True
 DataFrame = TypeVar('DataFrame')
 
 # extract NER tag from sentence for label
-def find_all_label(sentence: str) -> Tuple[np.array, np.array]:
+def find_all_label(sentence: str) -> Tuple[list, np.array, np.array]:
     # extract <aa:PS> shape string
     sentence = re.findall( r'<.*?\:.*?>', sentence)
     # remove '<', '>' 
