@@ -1,7 +1,7 @@
 # salmon-t5
 2022 kt dev chellenge X Salmon-T5
 
-![T](https://user-images.githubusercontent.com/53106649/191054847-e890b661-46b1-4bda-a4e3-1da4f61eba20.png)
+![Salmon-T5_Logo](https://user-images.githubusercontent.com/53106649/191055714-15321db0-78ce-4210-9ee2-51268c65f24e.png)
 
 
 ## preprocess.py  
