@@ -1,5 +1,8 @@
 # salmon-t5
-2022 kt dev chellenge
+2022 kt dev chellenge X Salmon-T5
+
+![T](https://user-images.githubusercontent.com/53106649/191054847-e890b661-46b1-4bda-a4e3-1da4f61eba20.png)
+
 
 ## preprocess.py  
 제일 첫 단계에 사용하는 스크립트로, 최초 txt 데이터부터, 데이터프레임까지의 전처리를 다룹니다  
