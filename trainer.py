@@ -10,7 +10,7 @@ from transformers import (AutoModelForSeq2SeqLM,
 import evaluate
 from typing import List
 from datasets import Dataset
-from preprocess import get_train_df, get_test_df
+from preprocess import get_train_df, get_test_df, get_data_from_txt, preprocess
 from data import get_train_valid_ds, split_train_valid, get_hf_ds
 from data_augmentation import get_augmented_df
 import os, random
@@ -119,6 +119,9 @@ if __name__ == '__main__':
     input_max_length = 97
     # label text의 전체 길이 설정, 88은 train label의 맥스값으로 설정한 상태
     label_max_length = 88
+    # 파일들이 save 될 장소를 설정해야함, 안그러면 겹칠 수 있음!
+    base_path = "/home/work/team03/salmon-gu/log"
+    prefix = ''
     
     base_model_path = '/home/work/team03/model/kt-ulm-base'
     small_model_path = '/home/work/team03/model/kt-ulm-small'
@@ -128,8 +131,9 @@ if __name__ == '__main__':
     tokenizer = get_pretrain_tokenizer(model_path=model_path)
     model = get_pretrain_model(model_path=model_path, tokenizer_size=tokenizer)
     
-    train_df = get_train_df()
-    test_df = get_test_df()
+    
+    train_df = get_train_df(prefix=prefix)
+    test_df = get_test_df(prefix=prefix)
     
     train_df, valid_df = split_train_valid(preprocessed_df=train_df, n_split=train_valid_n_split)
     train_df = get_augmented_df(preprocessed_df = train_df, augment_number=num_data_augment)
@@ -149,9 +153,9 @@ if __name__ == '__main__':
     
     file_name = str(batch_size) + '_' + str(num_train_epochs) + '_' + model_path.split('/')[-1] + '_' + str(learning_rate)
     
-    file_path = os.path.join(f"/home/work/team03/salmon-gu/log", file_name)
+    file_path = os.path.join(base_path, file_name)
     
-    debug = True
+    debug = False
     if debug == True:
         file_name = 'debug' + '_' + file_name
         
