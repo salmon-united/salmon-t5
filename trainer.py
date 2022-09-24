@@ -14,12 +14,13 @@ from preprocess import get_train_df, get_test_df
 from data import get_train_valid_ds, split_train_valid, get_hf_ds
 from data_augmentation import get_augmented_df
 import os, random
-import pickle
+import pandas as pd
+import pickle, json
 import numpy as np
 import torch
 from datetime import datetime
 from datasets import load_metric
-from trainer_metric import compute_bleu, compute_f1_acc
+from trainer_metric import compute_bleu, compute_f1_acc, decode_prediction
 
 
 # seed 고정
@@ -72,12 +73,6 @@ def tokenize_fn(ds) -> dict:
     
     model_inputs['labels'] = labels
     return model_inputs
-
-
-def get_token_ds(hf_ds: Dataset, tokenizer: AutoTokenizer, input_max_length: int = 50, label_max_length: int = 8) -> Dataset:
-    tokenized_hf_ds = hf_ds.map(lambda x: tokenize_fn(x, tokenizer, input_max_length, label_max_length))
-    tokenized_hf_ds = tokenized_hf_ds.remove_columns(hf_ds.column_names)
-    return tokenized_hf_ds
 
 def compute_metrics(eval_preds):
         
@@ -197,11 +192,23 @@ if __name__ == '__main__':
     trainer.train()
 
 # %%
-    predictions = trainer.predict(tokenized_test_ds)
-
-# %%
-    with open(file_path+'pred_label_metric_result.pkl', 'wb') as f:
-        pickle.dump(predictions, f)
+    prediction_output = trainer.predict(tokenized_test_ds)
+    
+    print(prediction_output.metrics)
+    metrics_path = os.path.join(file_path, 'bleu_f1_acc.json')
+    with open(metrics_path, 'w') as f:
+        json.dump(prediction_output.metrics, f, ensure_ascii=False, indent=4)
+    
+    decoded_preds, decoded_labels = decode_prediction(predictionoutput=prediction_output, tokenizer=tokenizer)
+    
+    result_df = pd.DataFrame({"pred":decoded_preds, "label":decoded_labels})
+    submission_df = pd.DataFrame({'input_sentence':test_df.input_sentence, 'pred':decoded_preds})
+    
+    result_df_path = os.path.join(file_path, 'test_pred_label.csv')
+    submission_df_path = os.path.join(file_path, 'submission.csv')
+    
+    result_df.to_csv(result_df_path, index=False)
+    submission_df.to_csv(submission_df_path, index=False)
     
 
 
