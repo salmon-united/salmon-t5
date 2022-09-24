@@ -20,6 +20,12 @@ torch.backends.cudnn.benchmark = True
 
 DataFrame = TypeVar('DataFrame')
 
+file_path = os.path.abspath(__file__)
+salmon_dir = os.path.dirname(file_path)
+data_dir = os.path.join(salmon_dir, 'raw_file')
+train_path = os.path.join(data_dir, 'klue_ner_train_80.txt')
+test_path = os.path.join(data_dir, 'klue_ner_test_20.txt')
+
 # extract NER tag from sentence for label
 def find_all_label(sentence: str) -> Tuple[list, np.array, np.array]:
     # extract <aa:PS> shape string
@@ -57,25 +63,27 @@ def get_data_from_txt(path: str) -> DataFrame:
     df = pd.DataFrame({'sentence':sentence_list})
     return df
 
-def preprocess(df: DataFrame, train: bool=True):
+def preprocess(df: DataFrame, train: bool=True, prefix:str=''):
     
     if train == True:
         df.sentence[10212] = df.sentence[10212].replace('일녀<QT>', '<일녀:QT>')
     df['labels'] = df.sentence.apply(find_all_label)
     df['train_label'] = df.labels.apply(lambda x: x[0])
+    df['train_label'] = df.train_label.apply(lambda x: ' '.join(x))
     df['name'] = df.labels.apply(lambda x: x[1])
     df['entity'] = df.labels.apply(lambda x: x[2])
     df['input_sentence'] = df.sentence.apply(remove_label)
-    df['input_sentence'] = 'summarize: ' + df.input_sentence
+    df['input_sentence'] = prefix + df.input_sentence
+    df['input_sentence'] = df.input_sentence.str.strip()
     df['joined_entity'] = df.entity.apply(lambda x: ' '.join(x))
     return df
 
-def get_train_df(path: str = '/root/klue_ner/data/klue_ner_train_80.txt'):
+def get_train_df(path: str = train_path):
     df = get_data_from_txt(path)
     preprocessed_df = preprocess(df=df, train=True)
     return preprocessed_df
 
-def get_test_df(path: str = '/root/klue_ner/data/klue_ner_test_20.txt'):
+def get_test_df(path: str = test_path):
     df = get_data_from_txt(path)
     preprocessed_df = preprocess(df=df, train=False)
     return preprocessed_df

@@ -1,3 +1,7 @@
+# %%
+import sys
+sys.path.append('/home/work/team03/salmon-t5')
+
 from transformers import (AutoModelForSeq2SeqLM,
                           AutoTokenizer,
                           Seq2SeqTrainingArguments,
@@ -6,16 +10,22 @@ from transformers import (AutoModelForSeq2SeqLM,
 import evaluate
 from typing import List
 from datasets import Dataset
-from preprocess import get_train_df
-from data import get_train_valid_ds
+from preprocess import get_train_df, get_test_df
+from data import get_train_valid_ds, split_train_valid, get_hf_ds
+from data_augmentation import get_augmented_df
 import os, random
+import pickle
 import numpy as np
 import torch
 from datetime import datetime
+from datasets import load_metric
+from trainer_metric import compute_bleu, compute_f1_acc
+
 
 # seed 고정
 seed = 1514
 random.seed(seed)
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 os.environ['PYTHONHASHSEED'] = str(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
@@ -52,7 +62,7 @@ def get_pretrain_model(model_path: str,
     return model
 
 
-def tokenize_fn(ds, tokenizer: AutoTokenizer ,input_max_length: int = 50, label_max_length: int = 8) -> dict:
+def tokenize_fn(ds) -> dict:
     model_inputs = tokenizer(ds['input_sentence'], max_length=input_max_length, truncation=True)
     
     with tokenizer.as_target_tokenizer():
@@ -60,7 +70,7 @@ def tokenize_fn(ds, tokenizer: AutoTokenizer ,input_max_length: int = 50, label_
             ds['train_label'], max_length=label_max_length, truncation=True,
         )['input_ids']
     
-    model_inputs['labels'] = labels[0]
+    model_inputs['labels'] = labels
     return model_inputs
 
 
@@ -69,10 +79,9 @@ def get_token_ds(hf_ds: Dataset, tokenizer: AutoTokenizer, input_max_length: int
     tokenized_hf_ds = tokenized_hf_ds.remove_columns(hf_ds.column_names)
     return tokenized_hf_ds
 
-
 def compute_metrics(eval_preds):
-    
-    preds, labels = eval_preds
+        
+    preds, labels = eval_preds.predictions, eval_preds.label_ids
     # In case the model returns more than the prediction logits
     if isinstance(preds, tuple):
         preds = preds[0]
@@ -85,42 +94,95 @@ def compute_metrics(eval_preds):
 
     # Some simple post-processing
     decoded_preds = [pred.strip() for pred in decoded_preds]
-    decoded_labels = [[label.strip()] for label in decoded_labels]
+    bleu_decoded_labels = [[label.strip()] for label in decoded_labels]
+    decoded_labels = [label.strip() for label in decoded_labels]
+    
+    metric_dict = {}
+    bleu_dict = compute_bleu(decoded_preds=decoded_preds, decoded_labels=bleu_decoded_labels)
+    f1_acc_dict = compute_f1_acc(decoded_preds=decoded_preds, decoded_labels=decoded_labels)
+    
+    metric_dict.update(bleu_dict)
+    metric_dict.update(f1_acc_dict)
+    
+    return metric_dict
 
-    result = metric.compute(predictions=decoded_preds, references=decoded_labels)
-    return {"bleu": result["score"]}
     
 if __name__ == '__main__':
-    train_df = get_train_df()
-    train_hf_ds, valid_hf_ds = get_train_valid_ds(train_df, n_split=4)
-    model_path = '/root/klue_ner/pretrained_model/ke-t5-base'
+    
+    batch_size = 64
+    num_train_epochs = 5
+    learning_rate = 5e-4
+    # 워밍업 스텝 비율
+    warm_up_ratio = 0.1
+    # 20000개 데이터중에, train valid fold 나누는 기준
+    # 10일 시 10개 폴드이므로, train:18000, valid:2000 비율
+    train_valid_n_split = 10
+    # 매 n+1마다 원본 파일을 기준으로 2배 증강함
+    # n이 3이면 데이터 3배 증가
+    num_data_augment = 0
+    # input text의 전체 길이 설정, 97은 input text의 맥스값으로 설정한 상태
+    input_max_length = 97
+    # label text의 전체 길이 설정, 88은 train label의 맥스값으로 설정한 상태
+    label_max_length = 88
+    
+    base_model_path = '/home/work/team03/model/kt-ulm-base'
+    small_model_path = '/home/work/team03/model/kt-ulm-small'
+    # 원하는 모델로 model_path에 입력
+    model_path = base_model_path
+    
     tokenizer = get_pretrain_tokenizer(model_path=model_path)
     model = get_pretrain_model(model_path=model_path, tokenizer_size=tokenizer)
-    tokenized_train_ds = get_token_ds(train_hf_ds, tokenizer, input_max_length=50, label_max_length=8)
-    tokenized_valid_ds = get_token_ds(valid_hf_ds, tokenizer, input_max_length=50, label_max_length=8)
     
+    train_df = get_train_df()
+    test_df = get_test_df()
+    
+    train_df, valid_df = split_train_valid(preprocessed_df=train_df, n_split=train_valid_n_split)
+    train_df = get_augmented_df(preprocessed_df = train_df, augment_number=num_data_augment)
+    
+    train_hf_ds = get_hf_ds(train_df)
+    valid_hf_ds = get_hf_ds(valid_df)
+    test_hf_ds = get_hf_ds(test_df)
+    
+    tokenized_train_ds = train_hf_ds.map(tokenize_fn, batched=True, remove_columns=train_hf_ds.column_names)
+    tokenized_valid_ds = valid_hf_ds.map(tokenize_fn, batched=True, remove_columns=valid_hf_ds.column_names)
+    tokenized_test_ds = test_hf_ds.map(tokenize_fn, batched=True, remove_columns=test_hf_ds.column_names)
+
+# %%
     data_collator = DataCollatorForSeq2Seq(tokenizer, model)
     
-    batch_size = 32
-    num_train_epochs = 15
     logging_steps = len(tokenized_train_ds) // batch_size
     
-    time_now = datetime.now()
-    time_format = time_now.strftime('%D%H')
+    file_name = str(batch_size) + '_' + str(num_train_epochs) + '_' + model_path.split('/')[-1] + '_' + str(learning_rate)
     
-    metric = evaluate.load('sacrebleu')
+    file_path = os.path.join(f"/home/work/team03/salmon-gu/log", file_name)
+    
+    debug = True
+    if debug == True:
+        file_name = 'debug' + '_' + file_name
+        
     
     args = Seq2SeqTrainingArguments(
-    output_dir=f"/root/klue_ner/finetuned_model/{time_format}",
+    output_dir=file_path,
     evaluation_strategy="epoch",
-    learning_rate=5.6e-5,
+    save_strategy='epoch',
+    learning_rate=learning_rate,
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
     weight_decay=0.01,
-    save_total_limit=3,
+    warmup_ratio=warm_up_ratio,
+    seed=seed,
+    data_seed=seed,
+    load_best_model_at_end=True,
+    generation_max_length=88,
+    generation_num_beams=None, # 효과 x 
+    # sortish_sampler=False,
+    save_total_limit=2,
     num_train_epochs=num_train_epochs,
     predict_with_generate=True,
     logging_steps=logging_steps,
+    report_to='wandb',
+    run_name='wandb_test',
+    
 )
     trainer = Seq2SeqTrainer(
         model,
@@ -133,3 +195,13 @@ if __name__ == '__main__':
     )
     
     trainer.train()
+
+# %%
+    predictions = trainer.predict(tokenized_test_ds)
+
+# %%
+    with open(file_path+'pred_label_metric_result.pkl', 'wb') as f:
+        pickle.dump(predictions, f)
+    
+
+

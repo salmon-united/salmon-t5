@@ -1,4 +1,5 @@
 def compute_metric(preds, labels):
+    
     tags = [':QT', ':DT', ':PS', ':LC', ':TI', ':OG']
     pred_list = list()
     pred_list.append([list(), ''])
@@ -14,7 +15,7 @@ def compute_metric(preds, labels):
     label_list = list()
     label_list.append([list(), ''])
     c = 0
-    for label in labels.split(' '):
+    for label in labels:#.split(' '):
         if label not in tags:
             label_list[c][0].append(label)
         else:

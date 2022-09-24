@@ -37,7 +37,7 @@ def augment_entity_base(preprocessed_df: DataFrame) -> DataFrame:
     
     for row_object in tqdm(preprocessed_df.itertuples()):
         row_list = []
-        temp_sentence = deepcopy(row_object.org_sentence)
+        temp_sentence = deepcopy(row_object.input_sentence)
         for word in row_object.train_label:
             
             # [name, entity] split
@@ -59,6 +59,17 @@ def augment_entity_base(preprocessed_df: DataFrame) -> DataFrame:
         changed_sentence_list.append(temp_sentence)
         changed_entity_list.append(row_list)
     
-    augmented_df = pd.DataFrame({'augmented_sentence':changed_sentence_list, 'augmented_label':changed_entity_list})
+    augmented_df = pd.DataFrame({'input_sentence':changed_sentence_list, 'train_label':changed_entity_list})
     
     return augmented_df
+
+def get_augmented_df(preprocessed_df: DataFrame, augment_number:int=1):
+    df = pd.DataFrame()
+    for i in range(augment_number):
+        temp_df = augment_entity_base(preprocessed_df)
+        df = pd.concat([df, temp_df])
+    
+    df = pd.concat([df, preprocessed_df])
+    
+    return df
+    
