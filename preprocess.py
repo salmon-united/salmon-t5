@@ -73,19 +73,19 @@ def preprocess(df: DataFrame, train: bool=True, prefix:str=''):
     df['name'] = df.labels.apply(lambda x: x[1])
     df['entity'] = df.labels.apply(lambda x: x[2])
     df['input_sentence'] = df.sentence.apply(remove_label)
-    df['input_sentence'] = prefix + df.input_sentence
+    df['input_sentence'] = prefix + ' ' + df.input_sentence
     df['input_sentence'] = df.input_sentence.str.strip()
     df['joined_entity'] = df.entity.apply(lambda x: ' '.join(x))
     return df
 
-def get_train_df(path: str = train_path):
+def get_train_df(path: str = train_path, prefix:str=''):
     df = get_data_from_txt(path)
-    preprocessed_df = preprocess(df=df, train=True)
+    preprocessed_df = preprocess(df=df, train=True, prefix=prefix)
     return preprocessed_df
 
-def get_test_df(path: str = test_path):
+def get_test_df(path: str = test_path, prefix:str=''):
     df = get_data_from_txt(path)
-    preprocessed_df = preprocess(df=df, train=False)
+    preprocessed_df = preprocess(df=df, train=False, prefix=prefix)
     return preprocessed_df
     
 if __name__ == '__main__':
