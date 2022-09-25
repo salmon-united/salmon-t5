@@ -105,38 +105,46 @@ def compute_metrics(eval_preds):
 if __name__ == '__main__':
     
     batch_size = 64
-    num_train_epochs = 5
+    gradient_accumulation = 2 # 2가 최적
+    num_train_epochs = 3
     learning_rate = 5e-4
     # 워밍업 스텝 비율
-    warm_up_ratio = 0.1
     # 20000개 데이터중에, train valid fold 나누는 기준
-    # 10일 시 10개 폴드이므로, train:18000, valid:2000 비율
+    # 10일 시 10개 폴드이므로, train:18000, valid:2000 비율이 최적
     train_valid_n_split = 10
     # 매 n+1마다 원본 파일을 기준으로 2배 증강함
     # n이 3이면 데이터 3배 증가
     num_data_augment = 0
-    # input text의 전체 길이 설정, 97은 input text의 맥스값으로 설정한 상태
-    input_max_length = 97
-    # label text의 전체 길이 설정, 88은 train label의 맥스값으로 설정한 상태
-    label_max_length = 88
+    # input text의 전체 길이 설정, 97은 input text의 맥스값으로 설정한 상태 -> prefix때문에 100으로 변경
+    input_max_length = 100
+    # label text의 전체 길이 설정, 88은 train label의 맥스값으로 설정한 상태 -> prefix때문에 90으로 변경
+    label_max_length = 90
+    beam_search = True
+    
     # 파일들이 save 될 장소를 설정해야함, 안그러면 겹칠 수 있음!
-    base_path = "/home/work/team03/salmon-gu/log"
-    prefix = ''
+    base_path = "/home/work/team03/salmon-gu/6_beam_search_train"
+    # 띄어쓰기 필요없음
+    prefix = 'extract entity:'
+    label_prefix = 'extracted entity:'
+    
+    log_message = f'input text: {prefix}: \n, label text: {label_prefix}'
     
     base_model_path = '/home/work/team03/model/kt-ulm-base'
     small_model_path = '/home/work/team03/model/kt-ulm-small'
+    
     # 원하는 모델로 model_path에 입력
     model_path = base_model_path
+    tokenizer_path = '/home/work/team03/model/kt-ulm-base'
     
-    tokenizer = get_pretrain_tokenizer(model_path=model_path)
+    
+    tokenizer = get_pretrain_tokenizer(model_path=tokenizer_path)
     model = get_pretrain_model(model_path=model_path, tokenizer_size=tokenizer)
     
-    
-    train_df = get_train_df(prefix=prefix)
-    test_df = get_test_df(prefix=prefix)
+    train_df = get_train_df(prefix=prefix, label_prefix=label_prefix)
+    test_df = get_test_df(prefix=prefix, label_prefix=label_prefix)
     
     train_df, valid_df = split_train_valid(preprocessed_df=train_df, n_split=train_valid_n_split)
-    train_df = get_augmented_df(preprocessed_df = train_df, augment_number=num_data_augment)
+    #train_df = get_augmented_df(preprocessed_df = train_df, augment_number=num_data_augment)
     
     train_hf_ds = get_hf_ds(train_df)
     valid_hf_ds = get_hf_ds(valid_df)
@@ -149,9 +157,18 @@ if __name__ == '__main__':
 # %%
     data_collator = DataCollatorForSeq2Seq(tokenizer, model)
     
-    logging_steps = len(tokenized_train_ds) // batch_size
+    warm_up_steps = int(((train_df.shape[0] * num_train_epochs) // (batch_size * gradient_accumulation)) * 0.2)
+    logging_steps = int(((train_df.shape[0] * num_train_epochs) // (batch_size * gradient_accumulation)) * 0.2)
+    save_steps = int(((train_df.shape[0] * num_train_epochs) // (batch_size * gradient_accumulation)) * 0.2)
+    eval_steps = int(((train_df.shape[0] * num_train_epochs) // (batch_size * gradient_accumulation)) * 0.2)
     
-    file_name = str(batch_size) + '_' + str(num_train_epochs) + '_' + model_path.split('/')[-1] + '_' + str(learning_rate)
+    print('logging_steps: ', logging_steps)
+    print('save_steps: ', save_steps)
+    print('eval_steps: ', eval_steps)
+    timenow = datetime.now()
+    time_format = timenow.strftime('%d-%H:%M')
+    
+    file_name = f'{prefix}_{label_prefix}' + 'grad_accmul' + str(gradient_accumulation) + '_' + 'n_split' + str(train_valid_n_split) + '_' + 'n_augment' + str(num_data_augment)  + '_' + str(batch_size) + '_' + str(num_train_epochs) + '_' + model_path.split('/')[-1] + '_' + str(learning_rate) + '_' 'date' + time_format
     
     file_path = os.path.join(base_path, file_name)
     
@@ -162,25 +179,33 @@ if __name__ == '__main__':
     
     args = Seq2SeqTrainingArguments(
     output_dir=file_path,
-    evaluation_strategy="epoch",
-    save_strategy='epoch',
+    evaluation_strategy="steps",
+    save_strategy='steps',
+    save_steps=save_steps,
+    eval_steps=eval_steps,
     learning_rate=learning_rate,
+    gradient_accumulation_steps=gradient_accumulation,
+    # gradient_checkpointing=True,
     per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size * 8,
     weight_decay=0.01,
-    warmup_ratio=warm_up_ratio,
+    warmup_steps=warm_up_steps,
     seed=seed,
     data_seed=seed,
+    bf16=True,
+    half_precision_backend='auto',
     load_best_model_at_end=True,
-    generation_max_length=88,
-    generation_num_beams=None, # 효과 x 
+    metric_for_best_model='eval_f1',
+    greater_is_better=True,
+    generation_max_length=label_max_length,
+    generation_num_beams=beam_search, # 효과 x 
     # sortish_sampler=False,
-    save_total_limit=2,
+    save_total_limit=3,
     num_train_epochs=num_train_epochs,
     predict_with_generate=True,
     logging_steps=logging_steps,
     report_to='wandb',
-    run_name='wandb_test',
+    run_name=file_name,
     
 )
     trainer = Seq2SeqTrainer(
@@ -202,6 +227,10 @@ if __name__ == '__main__':
     metrics_path = os.path.join(file_path, 'bleu_f1_acc.json')
     with open(metrics_path, 'w') as f:
         json.dump(prediction_output.metrics, f, ensure_ascii=False, indent=4)
+    
+    message_path = os.path.join(file_path, 'readme.md')
+    with open(message_path, 'w') as f:
+        f.write(log_message)
     
     decoded_preds, decoded_labels = decode_prediction(predictionoutput=prediction_output, tokenizer=tokenizer)
     
