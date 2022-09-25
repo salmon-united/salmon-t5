@@ -1,25 +1,32 @@
 # %%
-import sys
-sys.path.append('/home/work/team03/salmon-t5')
+import os, sys
+trainer_path = os.path.abspath(__file__)
+salmon_dir = os.path.dirname(trainer_path)
+base_dir = os.path.join(salmon_dir, 'output')
+sys.path.append(salmon_dir)
 
 from transformers import (AutoModelForSeq2SeqLM,
                           AutoTokenizer,
                           Seq2SeqTrainingArguments,
                           DataCollatorForSeq2Seq,
                           Seq2SeqTrainer)
-import evaluate
-from typing import List
+
 from datasets import Dataset
+from datasets import load_metric
+
+from typing import List
+from datetime import datetime
+
 from preprocess import get_train_df, get_test_df, get_data_from_txt, preprocess
-from data import get_train_valid_ds, split_train_valid, get_hf_ds
+from data import split_train_valid, get_hf_ds
 from data_augmentation import get_augmented_df
-import os, random
-import pandas as pd
-import pickle, json
+
+import random
+import json
 import numpy as np
 import torch
-from datetime import datetime
-from datasets import load_metric
+import pandas as pd
+
 from trainer_metric import compute_bleu, compute_f1_acc, decode_prediction
 
 
@@ -41,7 +48,7 @@ def get_pretrain_tokenizer(model_path: str = None,
         tokenizer = AutoTokenizer.from_pretrained(model_path)    
     except Exception as e:
         print(e, 'model_path not found, trying to load model from huggingface hub')
-        model_name = 'klue/ke-t5-base'
+        model_name = 'KETI-AIR/ke-t5-base'
         tokenizer = AutoTokenizer.from_pretrained(model_name)
     
     tokenizer.add_tokens(add_token)
@@ -55,7 +62,7 @@ def get_pretrain_model(model_path: str,
         model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
     except Exception as e:
         print(e, 'model_path not found, trying to load model from huggingface hub')
-        model_name = 'klue/ke-t5-base'
+        model_name = 'KETI-AIR/ke-t5-base'
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
         
     model.resize_token_embeddings(len(tokenizer_size))
@@ -104,7 +111,7 @@ def compute_metrics(eval_preds):
     
 if __name__ == '__main__':
     
-    batch_size = 64
+    batch_size = 16
     gradient_accumulation = 2 # 2가 최적
     num_train_epochs = 3
     learning_rate = 5e-4
@@ -122,7 +129,7 @@ if __name__ == '__main__':
     beam_search = True
     
     # 파일들이 save 될 장소를 설정해야함, 안그러면 겹칠 수 있음!
-    base_path = "/home/work/team03/salmon-gu/6_beam_search_train"
+    base_path = base_dir
     # 띄어쓰기 필요없음
     prefix = 'extract entity:'
     label_prefix = 'extracted entity:'
@@ -192,7 +199,7 @@ if __name__ == '__main__':
     warmup_steps=warm_up_steps,
     seed=seed,
     data_seed=seed,
-    bf16=True,
+    #bf16=True,
     half_precision_backend='auto',
     load_best_model_at_end=True,
     metric_for_best_model='eval_f1',
@@ -204,8 +211,8 @@ if __name__ == '__main__':
     num_train_epochs=num_train_epochs,
     predict_with_generate=True,
     logging_steps=logging_steps,
-    report_to='wandb',
-    run_name=file_name,
+    #report_to='wandb', # Wandb 사용 시 api키 등록이 필요함
+    #run_name=file_name, # 검증 과정을 위해 주석처리
     
 )
     trainer = Seq2SeqTrainer(
