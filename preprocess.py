@@ -53,6 +53,14 @@ def remove_label(sentence: str) -> str:
     # strip space
     sentence = re.sub('[ ]+',' ',sentence)
     sentence = sentence.strip()
+    sentence = re.sub('[!]+','!',sentence)
+    sentence = re.sub('[?]+','?',sentence)
+    sentence = re.sub('[~]+','~',sentence)
+    sentence = re.sub('[%]+','%',sentence)
+    sentence = re.sub('[$]+','$',sentence)
+    sentence = re.sub('[@]+','@',sentence)
+    sentence = re.sub('[\^\^]+','^^',sentence)
+    
     return sentence
 
 def get_data_from_txt(path: str) -> DataFrame:
@@ -63,7 +71,7 @@ def get_data_from_txt(path: str) -> DataFrame:
     df = pd.DataFrame({'sentence':sentence_list})
     return df
 
-def preprocess(df: DataFrame, train: bool=True, prefix:str=''):
+def preprocess(df: DataFrame, train: bool=True, prefix:str='', label_prefix:str=''):
     
     if train == True:
         df.sentence[10212] = df.sentence[10212].replace('일녀<QT>', '<일녀:QT>')
@@ -74,18 +82,20 @@ def preprocess(df: DataFrame, train: bool=True, prefix:str=''):
     df['entity'] = df.labels.apply(lambda x: x[2])
     df['input_sentence'] = df.sentence.apply(remove_label)
     df['input_sentence'] = prefix + ' ' + df.input_sentence
+    df['train_label'] = label_prefix + ' ' + df.train_label
     df['input_sentence'] = df.input_sentence.str.strip()
+    df['train_label'] = df.train_label.str.strip()
     df['joined_entity'] = df.entity.apply(lambda x: ' '.join(x))
     return df
 
-def get_train_df(path: str = train_path, prefix:str=''):
+def get_train_df(path: str = train_path, prefix:str='', label_prefix:str=''):
     df = get_data_from_txt(path)
-    preprocessed_df = preprocess(df=df, train=True, prefix=prefix)
+    preprocessed_df = preprocess(df=df, train=True, prefix=prefix, label_prefix=label_prefix)
     return preprocessed_df
 
-def get_test_df(path: str = test_path, prefix:str=''):
+def get_test_df(path: str = test_path, prefix:str='', label_prefix:str=''):
     df = get_data_from_txt(path)
-    preprocessed_df = preprocess(df=df, train=False, prefix=prefix)
+    preprocessed_df = preprocess(df=df, train=False, prefix=prefix, label_prefix=label_prefix)
     return preprocessed_df
     
 if __name__ == '__main__':

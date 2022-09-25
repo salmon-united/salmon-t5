@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from datasets import load_metric
+import re
 
 bleu_metric = load_metric('sacrebleu')
 
@@ -23,43 +24,47 @@ def decode_prediction(predictionoutput, tokenizer):
     return decoded_preds, decoded_labels
 
 def get_f1_acc(preds, labels):
-    
-    tags = ['QT', 'DT', 'PS', 'LC', 'TI', 'OG']
+    p = re.compile(":[A-Za-z]+")
+    result = p.finditer(preds)
+    s=0
+    e=-1
     pred_list = list()
     pred_list.append([list(), ''])
-    c = 0
-    for pred in preds.split(':'):
-        if pred not in tags:
-            pred_list[c][0].append(pred)
-        else:
-            pred_list[c][1] += pred
-            pred_list.append([list(), ''])
-            c += 1
+    for i, r in enumerate(result):
+        e=r.span()[0]
+        pred_list[i][0].extend(preds[s:e].split(' '))
+        pred_list[i][1] += preds[r.span()[0]:r.span()[1]]
+        s=r.span()[1]+1
+        pred_list.append([list(), ''])    
     del pred_list[-1] # pred list 생성
+    
+    p = re.compile(":[A-Za-z]+")
+    result = p.finditer(labels)
+    s=0
+    e=-1
     label_list = list()
     label_list.append([list(), ''])
-    c = 0
-    for label in labels.split(':'):
-        if label not in tags:
-            label_list[c][0].append(label)
-        else:
-            label_list[c][1] += label
-            label_list.append([list(), ''])
-            c += 1
+    for i, r in enumerate(result):
+        e=r.span()[0]
+        label_list[i][0].extend(labels[s:e].split(' '))
+        label_list[i][1] += labels[r.span()[0]:r.span()[1]]
+        s=r.span()[1]+1
+        label_list.append([list(), ''])    
     del label_list[-1] # label list 생성
     
     # print(pred_list)
     # print(label_list)
     
     true_positive = 0
-    for label in label_list:
-        label_substring_list = label[0]
-        label_tag = label[1]
+    for pred in pred_list:
+        pred_substring_list = pred[0]
+        pred_tag = pred[1]
         flag = False
-        for pred in pred_list:
-            pred_substring_list = pred[0]
-            pred_tag = pred[1]
-            if sum([label in pred_substring_list for label in label_substring_list]) > 0:
+        for label in label_list:
+            label_substring_list = label[0]
+            label_tag = label[1]
+            j = sum([pred in label_substring_list for pred in pred_substring_list])
+            if j > 0 and j >= len(pred_substring_list)-2:
                 if label_tag == pred_tag:
                    true_positive += 1
                 break # true_positive 구하기

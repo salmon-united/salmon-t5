@@ -13,7 +13,7 @@ def get_entity_dict(preprocessed_df: DataFrame)-> Dict[str, List[str]]:
     entity_dict = defaultdict(list)
 
     for row_object in tqdm(preprocessed_df.itertuples()):
-        for word in row_object.train_label:
+        for word in row_object.labels[0]:
             # aa:PS shape
             temp_list = word.split(':')
             entity_dict[temp_list[-1]].append(temp_list[0])
@@ -38,7 +38,7 @@ def augment_entity_base(preprocessed_df: DataFrame) -> DataFrame:
     for row_object in tqdm(preprocessed_df.itertuples()):
         row_list = []
         temp_sentence = deepcopy(row_object.input_sentence)
-        for word in row_object.train_label:
+        for word in row_object.labels[0]:
             
             # [name, entity] split
             temp_list = word.split(':')
@@ -57,7 +57,7 @@ def augment_entity_base(preprocessed_df: DataFrame) -> DataFrame:
 
             
         changed_sentence_list.append(temp_sentence)
-        changed_entity_list.append(row_list)
+        changed_entity_list.append(' '.join(row_list))
     
     augmented_df = pd.DataFrame({'input_sentence':changed_sentence_list, 'train_label':changed_entity_list})
     
@@ -69,7 +69,7 @@ def get_augmented_df(preprocessed_df: DataFrame, augment_number:int=1):
         temp_df = augment_entity_base(preprocessed_df)
         df = pd.concat([df, temp_df])
     
-    df = pd.concat([df, preprocessed_df])
+    df = pd.concat([df, preprocessed_df[['input_sentence','train_label']]])
     
     return df
     
