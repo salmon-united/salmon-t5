@@ -111,7 +111,7 @@ def compute_metrics(eval_preds):
     
 if __name__ == '__main__':
     
-    batch_size = 16
+    batch_size = 64
     gradient_accumulation = 2 # 2가 최적
     num_train_epochs = 3
     learning_rate = 5e-4
@@ -119,8 +119,8 @@ if __name__ == '__main__':
     # 20000개 데이터중에, train valid fold 나누는 기준
     # 10일 시 10개 폴드이므로, train:18000, valid:2000 비율이 최적
     train_valid_n_split = 10
-    # 매 n+1마다 원본 파일을 기준으로 2배 증강함
-    # n이 3이면 데이터 3배 증가
+    # n이면 n+1배 만퀌 증가
+    # n이 3이면 원본대비 4배 증가 성능향상 없어서 주석처리
     num_data_augment = 0
     # input text의 전체 길이 설정, 97은 input text의 맥스값으로 설정한 상태 -> prefix때문에 100으로 변경
     input_max_length = 100
@@ -139,12 +139,15 @@ if __name__ == '__main__':
     base_model_path = '/home/work/team03/model/kt-ulm-base'
     small_model_path = '/home/work/team03/model/kt-ulm-small'
     
+    ket5_base_path = 'KETI-AIR/ke-t5-base'
+    ket5_large_path = 'KETI-AIR/ke-t5-large'
+
+    
     # 원하는 모델로 model_path에 입력
     model_path = base_model_path
-    tokenizer_path = '/home/work/team03/model/kt-ulm-base'
     
     
-    tokenizer = get_pretrain_tokenizer(model_path=tokenizer_path)
+    tokenizer = get_pretrain_tokenizer(model_path=model_path)
     model = get_pretrain_model(model_path=model_path, tokenizer_size=tokenizer)
     
     train_df = get_train_df(prefix=prefix, label_prefix=label_prefix)
@@ -194,18 +197,18 @@ if __name__ == '__main__':
     gradient_accumulation_steps=gradient_accumulation,
     # gradient_checkpointing=True,
     per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size * 8,
+    per_device_eval_batch_size=batch_size * 4,
     weight_decay=0.01,
     warmup_steps=warm_up_steps,
     seed=seed,
     data_seed=seed,
-    #bf16=True,
+    bf16=True,
     half_precision_backend='auto',
     load_best_model_at_end=True,
     metric_for_best_model='eval_f1',
     greater_is_better=True,
     generation_max_length=label_max_length,
-    generation_num_beams=beam_search, # 효과 x 
+    #generation_num_beams=beam_search, # 효과 x 
     # sortish_sampler=False,
     save_total_limit=3,
     num_train_epochs=num_train_epochs,
