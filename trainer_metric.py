@@ -52,48 +52,66 @@ def get_f1_acc(preds, labels):
         label_list.append([list(), ''])    
     del label_list[-1] # label list 생성
     
-    # print(pred_list)
-    # print(label_list)
-    
+    visit = np.zeros((len(label_list), ))
     true_positive = 0
     for pred in pred_list:
         pred_substring_list = pred[0]
         pred_tag = pred[1]
         flag = False
-        for label in label_list:
+        for i, label in enumerate(label_list):
+            if visit[i] > 0:
+              continue
             label_substring_list = label[0]
             label_tag = label[1]
             j = sum([pred in label_substring_list for pred in pred_substring_list])
             if j > 0 and j >= len(pred_substring_list)-2:
                 if label_tag == pred_tag:
                    true_positive += 1
+                visit[i] += 1
                 break # true_positive 구하기
     
     flase_positive = len(pred_list) - true_positive
-    false_negative = len(label_list) - true_positive
-    
+
     if true_positive + flase_positive == 0 or len(label_list) == 0:
         return 0, 0
     
-    precision = true_positive / (true_positive + flase_positive)
-    recall = true_positive / len(label_list)
+    precision = true_positive / len(pred_list)
+
+    true_positive_label = 0
+    for label in label_list:
+        label_substring_list = label[0]
+        label_tag = label[1]
+        flag = False
+        for pred in pred_list:
+            pred_substring_list = pred[0]
+            pred_tag = pred[1]
+            j = sum([label in pred_substring_list for label in label_substring_list])
+            if j > 0 and j >= len(label_substring_list)-2:
+                if label_tag == pred_tag:
+                   true_positive_label += 1
+                break # true_positive 구하기
+
+    false_negative = len(label_list) - true_positive_label
+    recall = true_positive_label / len(label_list)
     
     if precision == 0 or recall == 0 :
         return 0, 0
     f1 = 2 / (1/precision + 1/recall)
-    
-#     print('len(label_list)', len(label_list))
-#     print('len(pred_list)', len(pred_list))
-#     print('true_positive', true_positive)
-#     print('flase_positive', flase_positive)
-#     print('false_negative', false_negative)
-#     print('precision', precision)
-#     print('recall', recall)
-#     print('f1', f1)
+
+    # print(pred_list)
+    # print(label_list)
+    # print('len(label_list)', len(label_list))
+    # print('len(pred_list)', len(pred_list))
+    # print('true_positive', true_positive)
+    # print('flase_positive', flase_positive)
+    # print('false_negative', false_negative)
+    # print('precision', precision)
+    # print('recall', recall)
+    # print('f1', f1)
     
     if len(label_list) == 0:
         return 0, 0
-    acc = true_positive / len(label_list)
+    acc = true_positive_label / len(label_list)
     return f1, acc
 
 def compute_f1_acc(decoded_preds, decoded_labels):
