@@ -186,7 +186,7 @@ if __name__ == '__main__':
     if debug == True:
         file_name = 'debug' + '_' + file_name
         
-    
+    # GPU 종류에 따라 batch_size, bf16 사용가능 여부등의 조건이 달라, 결과가 달라질 수 있습니다
     args = Seq2SeqTrainingArguments(
     output_dir=file_path,
     evaluation_strategy="steps",
@@ -245,7 +245,16 @@ if __name__ == '__main__':
     decoded_preds, decoded_labels = decode_prediction(predictionoutput=prediction_output, tokenizer=tokenizer)
     
     result_df = pd.DataFrame({"pred":decoded_preds, "label":decoded_labels})
+    result_df['pred'] = result_df.pred.str.replace(label_prefix, '')
+    result_df['pred'] = result_df.pred.str.strip()
+    result_df['label'] = result_df.pred.str.replace(label_prefix, '')
+    result_df['label'] = result_df.pred.str.strip()
+    
     submission_df = pd.DataFrame({'input_sentence':test_df.input_sentence, 'pred':decoded_preds})
+    submission_df['input_sentence'] = submission_df.input_sentence.str.replace(prefix, '')
+    submission_df['input_sentence'] = submission_df.input_sentence.str.strip()
+    submission_df['pred'] = submission_df.pred.str.replace(label_prefix, '')
+    submission_df['pred'] = submission_df.pred.str.strip()
     
     result_df_path = os.path.join(file_path, 'test_pred_label.csv')
     submission_df_path = os.path.join(file_path, 'submission.csv')
