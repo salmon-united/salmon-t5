@@ -68,7 +68,7 @@ def get_f1_acc(preds, labels):
                 if label_tag == pred_tag:
                    true_positive += 1
                    visit[i] += 1
-                break # true_positive 구하기
+                   break # true_positive 구하기
     
     flase_positive = len(pred_list) - true_positive
 
@@ -89,7 +89,7 @@ def get_f1_acc(preds, labels):
             if j > 0 and j >= len(label_substring_list)-2:
                 if label_tag == pred_tag:
                    true_positive_label += 1
-                break # true_positive 구하기
+                   break # true_positive 구하기
 
     false_negative = len(label_list) - true_positive_label
     recall = true_positive_label / len(label_list)
