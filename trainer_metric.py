@@ -67,7 +67,7 @@ def get_f1_acc(preds, labels):
             if j > 0 and j >= len(pred_substring_list)-2:
                 if label_tag == pred_tag:
                    true_positive += 1
-                visit[i] += 1
+                   visit[i] += 1
                 break # true_positive 구하기
     
     flase_positive = len(pred_list) - true_positive
