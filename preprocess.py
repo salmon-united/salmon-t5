@@ -42,7 +42,7 @@ def find_all_label(sentence: str) -> Tuple[list, np.array, np.array]:
     # create only entity array
     label_array = sentence_array[...,1]
     return before_split, ner_array, label_array
-    
+
 # remove NER tag from sentence for input    
 def remove_label(sentence: str) -> str:
     # remove <aa:PS> shape string
@@ -97,7 +97,7 @@ def get_test_df(path: str = test_path, prefix:str='', label_prefix:str=''):
     df = get_data_from_txt(path)
     preprocessed_df = preprocess(df=df, train=False, prefix=prefix, label_prefix=label_prefix)
     return preprocessed_df
-    
+
 if __name__ == '__main__':
     train_df = get_train_df()
     test_df = get_test_df()
